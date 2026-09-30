@@ -892,6 +892,10 @@ struct RuntimeStats {
     std::uint64_t computed_prefill_tokens = 0;
     // Tokens committed by decode rounds; the first token emitted by prefill is excluded.
     std::uint64_t committed_decode_tokens = 0;
+    // Wall seconds spent inside Program prefill/decode execution, summed over units. Rates
+    // against the token counters above give active-time speed; the raw rates give utilization.
+    double prefill_seconds_total = 0.0;
+    double decode_seconds_total  = 0.0;
     // Decode batch executions and the sum of their batch sizes.
     std::uint64_t decode_rounds             = 0;
     std::uint64_t decode_row_rounds         = 0;

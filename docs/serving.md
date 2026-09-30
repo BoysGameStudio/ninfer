@@ -57,6 +57,7 @@ selected for this process.
 | Method and path | Behavior |
 |---|---|
 | `GET /health` | Engine readiness |
+| `GET /metrics` | Prometheus text exposition of throughput, occupancy, and reuse counters |
 | `GET /v1/models` | configured OpenAI model alias and effective `max_model_len` |
 | `GET /v1/models/{id}` | lookup of the configured alias and effective `max_model_len` |
 | `POST /v1/chat/completions` | OpenAI-style chat generation |
@@ -74,6 +75,30 @@ saturation does not make the Engine unavailable. The endpoint remains unauthenti
 
 Every OpenAI-compatible response carries a unique `x-request-id` header, including streaming and
 error responses. Anthropic endpoints use their separate `request-id` contract.
+
+`GET /metrics` returns the flat `name value` subset of the Prometheus text format
+(`text/plain; version=0.0.4`). All series use the `ninfer:` prefix:
+
+| Series | Meaning |
+|---|---|
+| `ninfer:prompt_tokens_total` | computed prefill tokens; prefix-cache hits are excluded |
+| `ninfer:prompt_seconds_total` | wall seconds inside prefill execution |
+| `ninfer:tokens_predicted_total` | tokens committed by decode rounds |
+| `ninfer:tokens_predicted_seconds_total` | wall seconds inside decode execution |
+| `ninfer:decode_rounds_total` | decode batch executions |
+| `ninfer:requests_processing` | active requests holding a generation slot |
+| `ninfer:requests_deferred` | accepted requests waiting for a slot |
+| `ninfer:requests_total` | completed requests |
+| `ninfer:prefix_cache_hit_tokens_total` | prompt tokens served from prefix reuse |
+| `ninfer:draft_tokens_total` | speculative draft tokens proposed |
+| `ninfer:draft_accepted_tokens_total` | speculative draft tokens accepted |
+
+The four token/seconds counters come from the Engine's live per-unit totals and advance during a
+request; `rate(ninfer:prompt_tokens_total[1m]) / rate(ninfer:prompt_seconds_total[1m])` gives the
+active-time prefill speed, and the seconds counters alone read as engine utilization. Occupancy is
+reserved before prompt preparation and held through response release, so queued requests appear in
+`ninfer:requests_deferred` rather than disappearing. When `--api-key` is configured, `/metrics`
+requires the same credential as the generation routes; `/health` remains unauthenticated.
 
 All three generation SSE endpoints emit the standard `: keep-alive` comment after five seconds
 without a protocol event. The comment is transport-only: SSE clients ignore it, and it does not

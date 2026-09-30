@@ -1393,8 +1393,11 @@ private:
         }
         setup.finish();
         ProgramCallScope program_call(*this);
+        const Clock::time_point prefill_started = Clock::now();
         auto progress =
             instance_.program->advance_prefill(*request->sequence, &program_call.failed_timing());
+        cumulative_stats_.prefill_seconds_total +=
+            std::chrono::duration<double>(Clock::now() - prefill_started).count();
         program_call.finish(progress.timing);
         resolve_prefill_progress(request, std::move(progress), cancelled_at_unit_start);
         publish_runtime_stats();
@@ -1808,8 +1811,11 @@ private:
         nvtx::ScopedRange decode_range(nvtx::Name::Decode, nvtx::Category::Decode,
                                        static_cast<std::uint64_t>(membership.size));
         ProgramCallScope program_call(*this);
+        const Clock::time_point decode_started = Clock::now();
         auto pending = instance_.program->decode(
             membership.sequence_span(), membership.budget_span(), &program_call.failed_timing());
+        cumulative_stats_.decode_seconds_total +=
+            std::chrono::duration<double>(Clock::now() - decode_started).count();
         program_call.finish(pending.execution_timing());
         commit_pending(std::move(pending), membership.lane_span(), true, cancelled_at_unit_start);
         publish_runtime_stats();

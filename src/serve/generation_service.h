@@ -110,6 +110,9 @@ public:
 
     [[nodiscard]] bool is_available() const { return engine_->is_available(); }
 
+    // Requests holding an acquired lifetime, from admission through response release.
+    [[nodiscard]] std::size_t active_request_count() const;
+
     [[nodiscard]] ninfer::MediaCacheSummary media_cache_summary() const {
         return engine_->media_cache_summary();
     }

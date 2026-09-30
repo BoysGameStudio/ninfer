@@ -268,6 +268,7 @@ void HttpServer::record_request_rejected(const RequestRejectionLogContext& conte
 void HttpServer::record_request_done(const RequestLogContext& context,
                                      const GenerationOutcome& outcome) {
     request_jsonl_.write_request_done(context, outcome);
+    metrics_.record(outcome);
     operational_log_.request_done(context, outcome);
 }
 
@@ -430,6 +431,16 @@ void HttpServer::register_routes() {
         res.status           = available ? 200 : 503;
         res.set_content(nlohmann::json{{"status", available ? "ok" : "unavailable"}}.dump(),
                         "application/json");
+    });
+    // Prometheus scrape endpoint. When an API key is configured this route requires it like
+    // every generation route; only /health and CORS preflight are auth-exempt.
+    server_.Get("/metrics", [this](const httplib::Request&, httplib::Response& res) {
+        res.set_content(metrics_.render(options_.max_concurrency,
+                                        service_ != nullptr ? service_->runtime_stats()
+                                                            : ninfer::RuntimeStats{},
+                                        service_ != nullptr ? service_->active_request_count()
+                                                            : 0),
+                        "text/plain; version=0.0.4");
     });
     server_.Get("/v1/models", [this](const httplib::Request& req, httplib::Response& res) {
         handle_models(req, res);
